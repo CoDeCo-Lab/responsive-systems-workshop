@@ -1,0 +1,13 @@
+{
+  "name": "shared-dashboard-server",
+  "version": "1.0.0",
+  "description": "Central WebSocket server and dashboard for viewing all connected Arduino devices",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  }
+}

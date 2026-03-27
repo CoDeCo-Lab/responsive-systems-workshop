@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px;
+      user-select: none;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 30px;
+    }
+
+    /* --- Status bar --- */
+    .status-bar {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 5px 12px;
+      border-radius: 20px;
+    }
+
+    .status-badge.connected {
+      background: rgba(46, 204, 113, 0.15);
+      color: #2ecc71;
+    }
+
+    .status-badge.disconnected {
+      background: rgba(231, 76, 60, 0.15);
+      color: #e74c3c;
+    }
+
+    .status-badge.devices {
+      background: rgba(93, 173, 226, 0.15);
+      color: #5dade2;
+    }
+
+    /* --- Device list container --- */
+    .device-list-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    /* SVG overlay for wires */
+    .wires-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 30;
+      overflow: visible;
+    }
+
+    .wires-overlay path.wire {
+      fill: none;
+      stroke: #5dade2;
+      stroke-width: 2.5;
+      pointer-events: stroke;
+      cursor: pointer;
+      transition: stroke 0.2s;
+    }
+
+    .wires-overlay path.wire:hover {
+      stroke: #e74c3c;
+      stroke-width: 3.5;
+    }
+
+    .wires-overlay path.wire-temp {
+      fill: none;
+      stroke: #5dade2;
+      stroke-width: 2;
+      stroke-dasharray: 8 4;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    /* --- Empty state --- */
+    .empty-state {
+      text-align: center;
+      color: #555;
+      padding: 60px 20px;
+      font-size: 0.95rem;
+      line-height: 1.8;
+    }
+
+    /* --- Device row --- */
+    .device-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #16213e;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+    }
+
+    .device-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+      min-width: 110px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* --- Distance gauge with threshold sliders --- */
+    .device-gauge {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gauge-wrap {
+      flex: 1;
+      position: relative;
+      height: 42px;
+    }
+
+    .gauge-track {
+      position: absolute;
+      top: 8px;
+      left: 0;
+      right: 0;
+      height: 12px;
+      background: #2a2a4a;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    /* Colored zones inside the gauge */
+    .gauge-zone-on {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%;
+      background: #e74c3c;
+      opacity: 0.45;
+      transition: width 0.2s ease;
+    }
+
+    .gauge-zone-dead {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: #f39c12;
+      opacity: 0.25;
+      transition: left 0.2s ease, width 0.2s ease;
+    }
+
+    .gauge-zone-off {
+      position: absolute;
+      top: 0; right: 0;
+      height: 100%;
+      background: #2ecc71;
+      opacity: 0.15;
+      transition: width 0.2s ease;
+    }
+
+    .gauge-marker {
+      position: absolute;
+      top: 4px;
+      width: 3px;
+      height: 20px;
+      background: #fff;
+      border-radius: 1.5px;
+      transition: left 0.15s ease;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    /* Threshold sliders overlaid on the gauge */
+    .gauge-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      position: absolute;
+      top: 2px;
+      left: 0;
+      width: 100%;
+      height: 24px;
+      background: transparent;
+      outline: none;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .gauge-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 8px;
+      height: 24px;
+      border-radius: 3px;
+      cursor: ew-resize;
+      pointer-events: auto;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .gauge-slider::-moz-range-thumb {
+      width: 8px;
+      height: 24px;
+      border-radius: 3px;
+      cursor: ew-resize;
+      pointer-events: auto;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .gauge-slider.on-slider::-webkit-slider-thumb { background: #e74c3c; }
+    .gauge-slider.on-slider::-moz-range-thumb { background: #e74c3c; }
+    .gauge-slider.off-slider::-webkit-slider-thumb { background: #2ecc71; }
+    .gauge-slider.off-slider::-moz-range-thumb { background: #2ecc71; }
+
+    .threshold-label {
+      position: absolute;
+      bottom: 0;
+      font-size: 0.6rem;
+      font-weight: 600;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 11;
+      white-space: nowrap;
+    }
+
+    .threshold-label.on-label { color: #e74c3c; }
+    .threshold-label.off-label { color: #2ecc71; }
+
+    .gauge-value {
+      font-size: 0.75rem;
+      color: #aaa;
+      min-width: 55px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* --- Connectors (triangle shapes via CSS borders) --- */
+    .connector {
+      width: 0;
+      height: 0;
+      cursor: pointer;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 20;
+      transition: all 0.2s;
+      /* Reset box model — triangles are made entirely from borders */
+      background: none;
+      border-radius: 0;
+    }
+
+    /* Output connector: triangle pointing right (yellow) */
+    /* Dim/unfilled by default — lights up when sensor is emitting */
+    .connector.output {
+      border-top: 12px solid transparent;
+      border-bottom: 12px solid transparent;
+      border-left: 18px solid rgba(243, 156, 18, 0.15);
+      border-right: none;
+      margin-right: 20px;
+    }
+
+    .connector.output:hover {
+      border-left-color: rgba(243, 156, 18, 0.4);
+      transform: scale(1.2);
+    }
+
+    /* Lit state: sensor reading is below ON threshold — "electricity flowing out" */
+    .connector.output.lit {
+      border-left-color: #f1c40f;
+      filter: drop-shadow(0 0 8px rgba(241, 196, 15, 0.7));
+    }
+
+    .connector.output.lit:hover {
+      border-left-color: #f5d313;
+      filter: drop-shadow(0 0 12px rgba(241, 196, 15, 0.9));
+    }
+
+    /* Input connector: triangle pointing left (blue) */
+    /* Dim/unfilled by default — lights up when receiving a signal */
+    .connector.input {
+      border-top: 12px solid transparent;
+      border-bottom: 12px solid transparent;
+      border-right: 18px solid rgba(93, 173, 226, 0.15);
+      border-left: none;
+      margin-left: 20px;
+    }
+
+    .connector.input:hover {
+      border-right-color: rgba(93, 173, 226, 0.4);
+      transform: scale(1.2);
+    }
+
+    /* Lit state: LED is on — "electricity flowing in" */
+    .connector.input.lit {
+      border-right-color: #5dade2;
+      filter: drop-shadow(0 0 8px rgba(93, 173, 226, 0.7));
+    }
+
+    .connector.input.lit:hover {
+      border-right-color: #85c1e9;
+      filter: drop-shadow(0 0 12px rgba(93, 173, 226, 0.9));
+    }
+
+    /* Drag states */
+    .connector.active {
+      filter: drop-shadow(0 0 8px rgba(243, 156, 18, 0.6));
+    }
+
+    .connector.output.active {
+      border-left-color: #f1c40f;
+    }
+
+    .connector.drag-over {
+      transform: scale(1.4);
+      filter: drop-shadow(0 0 10px rgba(46, 204, 113, 0.7));
+    }
+
+    .connector.input.drag-over {
+      border-right-color: #2ecc71;
+    }
+
+    .connector-label {
+      font-size: 0.55rem;
+      color: #666;
+      text-align: center;
+      position: absolute;
+      bottom: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    /* --- LED indicator --- */
+    .device-led {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #333;
+      border: 2px solid #444;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+
+    .device-led.on {
+      background: #e74c3c;
+      border-color: #c0392b;
+      box-shadow:
+        0 0 10px rgba(231, 76, 60, 0.5),
+        0 0 25px rgba(231, 76, 60, 0.2);
+    }
+
+    /* --- Hint text --- */
+    .hint {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #555;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Shared Dashboard</h1>
+  <p class="subtitle">All connected devices</p>
+
+  <div class="status-bar">
+    <div class="status-badge disconnected" id="wsStatus">Connecting...</div>
+    <div class="status-badge devices" id="deviceCount">0 devices</div>
+  </div>
+
+  <div class="device-list-container" id="container">
+    <svg class="wires-overlay" id="wiresOverlay"></svg>
+    <div id="deviceList">
+      <div class="empty-state" id="emptyState">
+        No devices connected yet.<br>
+        Students should run their client scripts to appear here.
+      </div>
+    </div>
+  </div>
+
+  <div class="hint" id="hint"></div>
+
+  <script>
+    // ============================================================
+    // Shared Dashboard — Client-side code
+    // ============================================================
+
+    // --- DOM references ---
+    const wsStatusEl    = document.getElementById("wsStatus");
+    const deviceCountEl = document.getElementById("deviceCount");
+    const containerEl   = document.getElementById("container");
+    const deviceListEl  = document.getElementById("deviceList");
+    const wiresOverlay  = document.getElementById("wiresOverlay");
+    const emptyStateEl  = document.getElementById("emptyState");
+    const hintEl        = document.getElementById("hint");
+
+    // --- State ---
+    const devices = {};   // { name: { distance, ledOn, rowEl, ... } }
+    let linksList = [];   // [{ source, target }]
+
+    // --- Drag state ---
+    let dragging = null;  // { sourceDevice, startX, startY } or null
+
+    const MAX_DISTANCE = 100;
+    const DEFAULT_ON = 10;
+    const DEFAULT_OFF = 30;
+
+    // ============================================================
+    // WebSocket connection
+    // ============================================================
+
+    const ws = new WebSocket(`ws://${location.host}`);
+
+    ws.addEventListener("open", () => {
+      wsStatusEl.textContent = "Connected";
+      wsStatusEl.className = "status-badge connected";
+
+      // Identify ourselves as a dashboard.
+      ws.send(JSON.stringify({ type: "dashboard" }));
+    });
+
+    ws.addEventListener("close", () => {
+      wsStatusEl.textContent = "Disconnected";
+      wsStatusEl.className = "status-badge disconnected";
+    });
+
+    ws.addEventListener("error", () => {
+      wsStatusEl.textContent = "Connection error";
+      wsStatusEl.className = "status-badge disconnected";
+    });
+
+    ws.addEventListener("message", (event) => {
+      const data = JSON.parse(event.data);
+
+      // Full state refresh (on connect or when devices join/leave).
+      if (data.type === "state") {
+        rebuildDeviceList(data.devices);
+        linksList = data.links || [];
+        renderWires();
+      }
+
+      // Single device update (distance reading or LED change).
+      if (data.type === "update") {
+        updateDevice(data.name, data.distance, data.ledOn);
+      }
+
+      // Links list update.
+      if (data.type === "links") {
+        linksList = data.links || [];
+        renderWires();
+      }
+
+      // Threshold update from another dashboard tab or the server.
+      if (data.type === "thresholds") {
+        updateDeviceThresholds(data.device, data.onDistance, data.offDistance);
+      }
+    });
+
+    // ============================================================
+    // Device list rendering
+    // ============================================================
+
+    function rebuildDeviceList(deviceArray) {
+      // Clear old rows.
+      deviceListEl.innerHTML = "";
+
+      // Clear tracked state.
+      for (const name in devices) delete devices[name];
+
+      if (deviceArray.length === 0) {
+        deviceListEl.appendChild(emptyStateEl);
+        emptyStateEl.style.display = "block";
+      } else {
+        emptyStateEl.style.display = "none";
+
+        for (const dev of deviceArray) {
+          createDeviceRow(dev.name, dev.distance, dev.ledOn, dev.onDistance, dev.offDistance);
+        }
+      }
+
+      deviceCountEl.textContent = `${deviceArray.length} device${deviceArray.length !== 1 ? "s" : ""}`;
+      updateHint();
+
+      // Wires need to be redrawn after DOM changes.
+      requestAnimationFrame(() => renderWires());
+    }
+
+    function createDeviceRow(name, distance, ledOn, onDist, offDist) {
+      const onDistance = onDist || DEFAULT_ON;
+      const offDistance = offDist || DEFAULT_OFF;
+
+      const row = document.createElement("div");
+      row.className = "device-row";
+      row.dataset.device = name;
+
+      // --- Device name ---
+      const nameEl = document.createElement("div");
+      nameEl.className = "device-name";
+      nameEl.textContent = name;
+
+      // --- Distance gauge with threshold sliders ---
+      const gaugeContainer = document.createElement("div");
+      gaugeContainer.className = "device-gauge";
+
+      const gaugeWrap = document.createElement("div");
+      gaugeWrap.className = "gauge-wrap";
+
+      const track = document.createElement("div");
+      track.className = "gauge-track";
+
+      // Colored zones
+      const zoneOn = document.createElement("div");
+      zoneOn.className = "gauge-zone-on";
+
+      const zoneDead = document.createElement("div");
+      zoneDead.className = "gauge-zone-dead";
+
+      const zoneOff = document.createElement("div");
+      zoneOff.className = "gauge-zone-off";
+
+      track.appendChild(zoneOn);
+      track.appendChild(zoneDead);
+      track.appendChild(zoneOff);
+
+      // Distance marker
+      const marker = document.createElement("div");
+      marker.className = "gauge-marker";
+
+      // Threshold sliders
+      const onSlider = document.createElement("input");
+      onSlider.type = "range";
+      onSlider.className = "gauge-slider on-slider";
+      onSlider.min = 0;
+      onSlider.max = 100;
+      onSlider.value = onDistance;
+
+      const offSlider = document.createElement("input");
+      offSlider.type = "range";
+      offSlider.className = "gauge-slider off-slider";
+      offSlider.min = 0;
+      offSlider.max = 100;
+      offSlider.value = offDistance;
+
+      // Threshold value labels
+      const onLabel = document.createElement("div");
+      onLabel.className = "threshold-label on-label";
+      onLabel.textContent = `${onDistance}`;
+
+      const offLabel = document.createElement("div");
+      offLabel.className = "threshold-label off-label";
+      offLabel.textContent = `${offDistance}`;
+
+      gaugeWrap.appendChild(track);
+      gaugeWrap.appendChild(marker);
+      gaugeWrap.appendChild(onSlider);
+      gaugeWrap.appendChild(offSlider);
+      gaugeWrap.appendChild(onLabel);
+      gaugeWrap.appendChild(offLabel);
+
+      const valueEl = document.createElement("div");
+      valueEl.className = "gauge-value";
+      valueEl.textContent = distance !== null ? `${distance.toFixed(1)} cm` : "-- cm";
+
+      gaugeContainer.appendChild(gaugeWrap);
+      gaugeContainer.appendChild(valueEl);
+
+      // --- Output connector (distance → wire) ---
+      const outConn = document.createElement("div");
+      outConn.className = "connector output";
+      outConn.dataset.device = name;
+      outConn.dataset.type = "output";
+      outConn.title = `Drag from here to link ${name}'s sensor to another LED`;
+
+      // --- Input connector (wire → LED) ---
+      const inConn = document.createElement("div");
+      inConn.className = "connector input";
+      inConn.dataset.device = name;
+      inConn.dataset.type = "input";
+      inConn.title = `Drop a wire here to control ${name}'s LED`;
+
+      // --- LED ---
+      const ledEl = document.createElement("div");
+      ledEl.className = "device-led" + (ledOn ? " on" : "");
+
+      // Assemble row.
+      row.appendChild(nameEl);
+      row.appendChild(gaugeContainer);
+      row.appendChild(outConn);
+      row.appendChild(inConn);
+      row.appendChild(ledEl);
+
+      deviceListEl.appendChild(row);
+
+      // Store references for fast updates.
+      const dev = {
+        distance: distance,
+        ledOn: ledOn,
+        onDistance: onDistance,
+        offDistance: offDistance,
+        marker: marker,
+        valueEl: valueEl,
+        ledEl: ledEl,
+        outConn: outConn,
+        inConn: inConn,
+        onSlider: onSlider,
+        offSlider: offSlider,
+        zoneOn: zoneOn,
+        zoneDead: zoneDead,
+        zoneOff: zoneOff,
+        onLabel: onLabel,
+        offLabel: offLabel,
+      };
+
+      devices[name] = dev;
+
+      // Position the marker.
+      if (distance !== null) {
+        const pct = Math.max(0, Math.min(distance, MAX_DISTANCE)) / MAX_DISTANCE * 100;
+        marker.style.left = `calc(${pct}% - 1.5px)`;
+      }
+
+      // Set initial zone positions.
+      updateZones(dev);
+
+      // Light up connectors based on current state.
+      if (distance !== null && distance < onDistance) {
+        outConn.classList.add("lit");
+      }
+      if (ledOn) {
+        inConn.classList.add("lit");
+      }
+
+      // --- Slider event handlers ---
+      onSlider.addEventListener("input", () => {
+        let val = parseInt(onSlider.value, 10);
+        if (val >= dev.offDistance) {
+          val = dev.offDistance - 1;
+          onSlider.value = val;
+        }
+        dev.onDistance = val;
+        updateZones(dev);
+        sendThresholds(name, dev);
+      });
+
+      offSlider.addEventListener("input", () => {
+        let val = parseInt(offSlider.value, 10);
+        if (val <= dev.onDistance) {
+          val = dev.onDistance + 1;
+          offSlider.value = val;
+        }
+        dev.offDistance = val;
+        updateZones(dev);
+        sendThresholds(name, dev);
+      });
+    }
+
+    // Compute the label position to match the browser's actual thumb
+    // position. Range input thumbs don't go edge-to-edge — the center
+    // of the thumb stops half-a-thumb-width from each end. We replicate
+    // that offset so labels sit directly under their slider handles.
+    const THUMB_WIDTH = 8; // must match the CSS thumb width
+
+    function thumbPosition(slider, value) {
+      const trackWidth = slider.offsetWidth;
+      if (!trackWidth) return `${(value / MAX_DISTANCE) * 100}%`;
+      const ratio = (value - slider.min) / (slider.max - slider.min);
+      const halfThumb = THUMB_WIDTH / 2;
+      const px = halfThumb + ratio * (trackWidth - THUMB_WIDTH);
+      return `${px}px`;
+    }
+
+    function updateZones(dev) {
+      const onPct = (dev.onDistance / MAX_DISTANCE) * 100;
+      const offPct = (dev.offDistance / MAX_DISTANCE) * 100;
+      dev.zoneOn.style.width = `${onPct}%`;
+      dev.zoneDead.style.left = `${onPct}%`;
+      dev.zoneDead.style.width = `${offPct - onPct}%`;
+      dev.zoneOff.style.width = `${100 - offPct}%`;
+      dev.onLabel.style.left = thumbPosition(dev.onSlider, dev.onDistance);
+      dev.onLabel.textContent = `${dev.onDistance}`;
+      dev.offLabel.style.left = thumbPosition(dev.offSlider, dev.offDistance);
+      dev.offLabel.textContent = `${dev.offDistance}`;
+    }
+
+    function sendThresholds(deviceName, dev) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "thresholds",
+          device: deviceName,
+          onDistance: dev.onDistance,
+          offDistance: dev.offDistance,
+        }));
+      }
+    }
+
+    function updateDevice(name, distance, ledOn) {
+      const dev = devices[name];
+      if (!dev) return;
+
+      // Update distance gauge.
+      if (distance !== null) {
+        dev.distance = distance;
+        const pct = Math.max(0, Math.min(distance, MAX_DISTANCE)) / MAX_DISTANCE * 100;
+        dev.marker.style.left = `calc(${pct}% - 1.5px)`;
+        dev.valueEl.textContent = `${distance.toFixed(1)} cm`;
+
+        // Output triangle lights up when below ON threshold — sensor is "emitting".
+        if (distance < dev.onDistance) {
+          dev.outConn.classList.add("lit");
+        } else {
+          dev.outConn.classList.remove("lit");
+        }
+      }
+
+      // Update LED and input connector.
+      dev.ledOn = ledOn;
+      if (ledOn) {
+        dev.ledEl.classList.add("on");
+        dev.inConn.classList.add("lit");    // Input lights up — receiving signal
+      } else {
+        dev.ledEl.classList.remove("on");
+        dev.inConn.classList.remove("lit");
+      }
+    }
+
+    function updateDeviceThresholds(name, onDist, offDist) {
+      const dev = devices[name];
+      if (!dev) return;
+
+      dev.onDistance = onDist;
+      dev.offDistance = offDist;
+      dev.onSlider.value = onDist;
+      dev.offSlider.value = offDist;
+      updateZones(dev);
+    }
+
+    function updateHint() {
+      const count = Object.keys(devices).length;
+      if (count >= 2) {
+        hintEl.textContent = "Drag from a yellow triangle to a blue triangle to link one device's sensor to another's LED. Click a wire to remove it.";
+      } else if (count === 1) {
+        hintEl.textContent = "Waiting for more devices to connect...";
+      } else {
+        hintEl.textContent = "";
+      }
+    }
+
+    // ============================================================
+    // Wire rendering (SVG)
+    // ============================================================
+
+    function renderWires() {
+      // Clear existing wires (but keep the temp wire if dragging).
+      const tempWire = wiresOverlay.querySelector(".wire-temp");
+      wiresOverlay.innerHTML = "";
+      if (tempWire) wiresOverlay.appendChild(tempWire);
+
+      // Match SVG size to container.
+      const rect = containerEl.getBoundingClientRect();
+      wiresOverlay.setAttribute("width", rect.width);
+      wiresOverlay.setAttribute("height", rect.height);
+
+      // Draw a curve for each link.
+      for (const link of linksList) {
+        const srcDev = devices[link.source];
+        const tgtDev = devices[link.target];
+        if (!srcDev || !tgtDev) continue;
+
+        const start = getConnectorCenter(srcDev.outConn);
+        const end = getConnectorCenter(tgtDev.inConn);
+        if (!start || !end) continue;
+
+        const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        pathEl.setAttribute("d", curvePath(start.x, start.y, end.x, end.y));
+        pathEl.setAttribute("class", "wire");
+        pathEl.dataset.source = link.source;
+        pathEl.dataset.target = link.target;
+        pathEl.style.pointerEvents = "stroke";
+
+        // Click to remove.
+        pathEl.addEventListener("click", (e) => {
+          e.stopPropagation();
+          ws.send(JSON.stringify({
+            type: "unlink",
+            source: link.source,
+            target: link.target,
+          }));
+        });
+
+        wiresOverlay.appendChild(pathEl);
+      }
+    }
+
+    function getConnectorCenter(el) {
+      const containerRect = containerEl.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      return {
+        x: elRect.left + elRect.width / 2 - containerRect.left,
+        y: elRect.top + elRect.height / 2 - containerRect.top,
+      };
+    }
+
+    function curvePath(x1, y1, x2, y2) {
+      // Cubic bezier that bows out horizontally for a nice "wire" look.
+      const dx = Math.abs(x2 - x1) * 0.4 + 30;
+      return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+    }
+
+    // ============================================================
+    // Drag-and-drop linking
+    // ============================================================
+
+    // We use pointer events so this works with both mouse and touch.
+
+    // --- Start drag on output connector ---
+    document.addEventListener("pointerdown", (e) => {
+      const conn = e.target.closest(".connector.output");
+      if (!conn) return;
+
+      e.preventDefault();
+      conn.setPointerCapture(e.pointerId);
+
+      dragging = {
+        sourceDevice: conn.dataset.device,
+        pointerId: e.pointerId,
+      };
+
+      conn.classList.add("active");
+
+      // Create the temporary wire SVG path.
+      const tempWire = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      tempWire.setAttribute("class", "wire-temp");
+      wiresOverlay.appendChild(tempWire);
+
+      updateTempWire(e);
+    });
+
+    // --- Update temp wire as pointer moves ---
+    document.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+
+      updateTempWire(e);
+
+      // Highlight input connectors on hover.
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      document.querySelectorAll(".connector.input.drag-over").forEach(
+        (el) => el.classList.remove("drag-over")
+      );
+      if (target && target.classList.contains("input")) {
+        target.classList.add("drag-over");
+      }
+    });
+
+    // --- Complete or cancel drag ---
+    document.addEventListener("pointerup", (e) => {
+      if (!dragging) return;
+
+      // Clean up highlights.
+      document.querySelectorAll(".connector.active").forEach(
+        (el) => el.classList.remove("active")
+      );
+      document.querySelectorAll(".connector.drag-over").forEach(
+        (el) => el.classList.remove("drag-over")
+      );
+
+      // Remove temp wire.
+      const tempWire = wiresOverlay.querySelector(".wire-temp");
+      if (tempWire) tempWire.remove();
+
+      // Check if we dropped on an input connector.
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      if (
+        target &&
+        target.classList.contains("input")
+      ) {
+        // Create the link!
+        ws.send(JSON.stringify({
+          type: "link",
+          source: dragging.sourceDevice,
+          target: target.dataset.device,
+        }));
+      }
+
+      dragging = null;
+    });
+
+    function updateTempWire(e) {
+      const tempWire = wiresOverlay.querySelector(".wire-temp");
+      if (!tempWire || !dragging) return;
+
+      const srcDev = devices[dragging.sourceDevice];
+      if (!srcDev) return;
+
+      const start = getConnectorCenter(srcDev.outConn);
+      const containerRect = containerEl.getBoundingClientRect();
+      const endX = e.clientX - containerRect.left;
+      const endY = e.clientY - containerRect.top;
+
+      tempWire.setAttribute("d", curvePath(start.x, start.y, endX, endY));
+    }
+
+    // --- Redraw wires on resize ---
+    window.addEventListener("resize", () => renderWires());
+  </script>
+</body>
+</html>
