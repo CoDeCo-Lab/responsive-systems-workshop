@@ -32,6 +32,11 @@
       margin-bottom: 40px;
     }
 
+    .subtitle .device-name {
+      color: #5dade2;
+      font-weight: 600;
+    }
+
     /* --- Main layout --- */
     .dashboard {
       display: flex;
@@ -267,7 +272,7 @@
 </head>
 <body>
   <h1>Proximity Sensor Dashboard</h1>
-  <p class="subtitle">Real-time readings from Arduino</p>
+  <p class="subtitle">Real-time readings from <span class="device-name" id="deviceName">---</span></p>
 
   <div class="dashboard">
 
@@ -320,8 +325,9 @@
     // ============================================================
 
     // --- DOM references ---
-    const statusEl   = document.getElementById("status");
-    const markerEl   = document.getElementById("marker");
+    const statusEl      = document.getElementById("status");
+    const deviceNameEl  = document.getElementById("deviceName");
+    const markerEl      = document.getElementById("marker");
     const ledEl      = document.getElementById("led");
     const ledLabelEl = document.getElementById("ledLabel");
     const zoneOnEl   = document.getElementById("zoneOn");
@@ -361,6 +367,13 @@
     // --- Handle incoming messages from the server ---
     ws.addEventListener("message", (event) => {
       const data = JSON.parse(event.data);
+
+      if (data.type === "init" || data.type === "reading") {
+        // Update the device name displayed on the dashboard.
+        if (data.deviceName) {
+          deviceNameEl.textContent = data.deviceName;
+        }
+      }
 
       if (data.type === "init" || data.type === "thresholds") {
         // Update thresholds from the server (either on first

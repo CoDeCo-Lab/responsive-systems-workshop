@@ -16,6 +16,22 @@ You need Node.js installed on your laptop. If you haven't installed it yet, foll
 
 Any modern browser will work (Chrome, Firefox, Safari, Edge).
 
+## Setting Your Device Name
+
+Before running the server, open `server.js` in a text editor and find this line near the top:
+
+```js
+const DEVICE_NAME = "My Arduino";
+```
+
+Change `"My Arduino"` to your name or your team's name. For example:
+
+```js
+const DEVICE_NAME = "Team Rocket";
+```
+
+This name will appear on the dashboard and will identify your device when we connect multiple boards to the same server in later examples. **Make sure to keep the quotes around the name.**
+
 ## Installation
 
 1. Open a terminal:
@@ -79,7 +95,7 @@ This project adds two layers on top of 02_OpenLogic:
 2. **WebSocket connection** — once the page loads, the browser opens a persistent WebSocket connection back to the server. This allows the server to push every distance reading and LED state change to the browser instantly, and allows the browser to send threshold changes back to the server.
 
 ```
-┌──────────┐  USB Serial  ┌──────────────┐  WebSocket  ┌──────────────┐
+┌──────────┐   USB Serial  ┌──────────────┐  WebSocket   ┌──────────────┐
 │ Arduino  │ ───────────── │   Node.js    │ ──────────── │   Browser    │
 │ (bridge) │               │   server     │              │  dashboard   │
 └──────────┘               └──────────────┘              └──────────────┘

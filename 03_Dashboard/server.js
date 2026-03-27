@@ -25,6 +25,13 @@
 // Then open http://localhost:3000 in your browser.
 // ============================================================
 
+// --- Device name ---
+// *** CHANGE THIS to your name or your team's name! ***
+// This label identifies your device on the dashboard (and will
+// be used in later examples when multiple devices connect to
+// the same server).
+const DEVICE_NAME = "My Arduino";
+
 // --- Dependencies ---
 const { SerialPort } = require("serialport");
 const { ReadlineParser } = require("@serialport/parser-readline");
@@ -90,6 +97,7 @@ parser.on("data", (line) => {
   // dashboard can update its visuals in real time.
   broadcastToClients({
     type: "reading",
+    deviceName: DEVICE_NAME,
     distance: distance,
     ledOn: ledOn,
     onDistance: onDistance,
@@ -145,6 +153,7 @@ wss.on("connection", (ws) => {
   ws.send(
     JSON.stringify({
       type: "init",
+      deviceName: DEVICE_NAME,
       onDistance: onDistance,
       offDistance: offDistance,
       ledOn: ledOn,
