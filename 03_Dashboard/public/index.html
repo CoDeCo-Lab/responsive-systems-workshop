@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proximity Sensor Dashboard</title>
+  <style>
+    /* --- Reset & base --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #ffffff;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 40px;
+    }
+
+    /* --- Main layout --- */
+    .dashboard {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+      width: 100%;
+      max-width: 700px;
+    }
+
+    /* --- Distance scene with integrated sliders --- */
+    .scene {
+      width: 100%;
+      position: relative;
+      background: #16213e;
+      border-radius: 16px;
+      padding: 30px 30px 20px;
+      border: 1px solid #2a2a4a;
+    }
+
+    .scene-label {
+      font-size: 0.8rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 24px;
+    }
+
+    .gauge-container {
+      position: relative;
+      width: 100%;
+      height: 80px;
+      margin-bottom: 12px;
+    }
+
+    /* The full gauge bar background */
+    .gauge-track {
+      position: absolute;
+      top: 30px;
+      left: 0;
+      right: 0;
+      height: 20px;
+      background: #2a2a4a;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    /* Colored zones inside the gauge */
+    .zone-on {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: #e74c3c;
+      opacity: 0.5;
+      transition: width 0.3s ease;
+    }
+
+    .zone-dead {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: #f39c12;
+      opacity: 0.3;
+      transition: left 0.3s ease, width 0.3s ease;
+    }
+
+    .zone-off {
+      position: absolute;
+      top: 0;
+      right: 0;
+      height: 100%;
+      background: #2ecc71;
+      opacity: 0.2;
+      transition: width 0.3s ease;
+    }
+
+    /* Moving marker showing current distance */
+    .marker {
+      position: absolute;
+      top: 16px;
+      width: 4px;
+      height: 48px;
+      background: #ffffff;
+      border-radius: 2px;
+      transition: left 0.1s ease;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .marker::after {
+      content: attr(data-distance);
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      color: #ffffff;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    /* --- Sliders overlaid on the gauge --- */
+    .gauge-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      position: absolute;
+      top: 22px;
+      left: 0;
+      width: 100%;
+      height: 36px;
+      background: transparent;
+      outline: none;
+      z-index: 20;
+      pointer-events: none;       /* let clicks pass through the track */
+    }
+
+    /* Only the thumb is interactive */
+    .gauge-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 36px;
+      border-radius: 4px;
+      cursor: ew-resize;
+      pointer-events: auto;       /* re-enable interaction on thumb */
+      border: 2px solid rgba(255, 255, 255, 0.4);
+    }
+
+    .gauge-slider::-moz-range-thumb {
+      width: 16px;
+      height: 36px;
+      border-radius: 4px;
+      cursor: ew-resize;
+      pointer-events: auto;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+    }
+
+    /* On-threshold thumb — red */
+    #onSlider::-webkit-slider-thumb { background: #e74c3c; }
+    #onSlider::-moz-range-thumb { background: #e74c3c; }
+
+    /* Off-threshold thumb — green */
+    #offSlider::-webkit-slider-thumb { background: #2ecc71; }
+    #offSlider::-moz-range-thumb { background: #2ecc71; }
+
+    /* Threshold labels floating above the gauge */
+    .threshold-label {
+      position: absolute;
+      top: 4px;
+      font-size: 0.65rem;
+      color: #aaa;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    .gauge-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: #666;
+      padding: 0 2px;
+    }
+
+    .gauge-hint {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    /* --- LED indicator --- */
+    .led-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .led-section .scene-label {
+      margin-bottom: 0;
+    }
+
+    .led {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: #333;
+      border: 3px solid #444;
+      transition: all 0.3s ease;
+    }
+
+    .led.on {
+      background: #e74c3c;
+      border-color: #c0392b;
+      box-shadow:
+        0 0 20px rgba(231, 76, 60, 0.6),
+        0 0 60px rgba(231, 76, 60, 0.3),
+        0 0 100px rgba(231, 76, 60, 0.15);
+    }
+
+    .led-label {
+      font-size: 1rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .led-label.on { color: #e74c3c; }
+    .led-label.off { color: #666; }
+
+    /* --- Connection status --- */
+    .status {
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: #2a2a4a;
+      color: #888;
+    }
+
+    .status.connected {
+      background: rgba(46, 204, 113, 0.15);
+      color: #2ecc71;
+    }
+
+    .status.disconnected {
+      background: rgba(231, 76, 60, 0.15);
+      color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+  <h1>Proximity Sensor Dashboard</h1>
+  <p class="subtitle">Real-time readings from Arduino</p>
+
+  <div class="dashboard">
+
+    <!-- Connection status -->
+    <div class="status disconnected" id="status">Connecting...</div>
+
+    <!-- Distance gauge with integrated threshold sliders -->
+    <div class="scene">
+      <div class="scene-label">Distance &amp; Thresholds</div>
+      <div class="gauge-container">
+        <!-- Threshold labels above the bar -->
+        <div class="threshold-label" id="onLabel">ON &lt; 10 cm</div>
+        <div class="threshold-label" id="offLabel">OFF &gt; 30 cm</div>
+
+        <!-- Colored gauge bar -->
+        <div class="gauge-track">
+          <div class="zone-on" id="zoneOn"></div>
+          <div class="zone-dead" id="zoneDead"></div>
+          <div class="zone-off" id="zoneOff"></div>
+        </div>
+
+        <!-- Sliders overlaid directly on the gauge bar -->
+        <input type="range" class="gauge-slider" id="onSlider" min="1" max="99" value="10">
+        <input type="range" class="gauge-slider" id="offSlider" min="2" max="100" value="30">
+
+        <!-- White marker for the current distance reading -->
+        <div class="marker" id="marker" data-distance="-- cm"></div>
+      </div>
+      <div class="gauge-labels">
+        <span>0 cm</span>
+        <span>100 cm</span>
+      </div>
+      <div class="gauge-hint">Drag the red and green handles to adjust thresholds</div>
+    </div>
+
+    <!-- LED indicator -->
+    <div class="led-section">
+      <div class="scene-label">LED Status</div>
+      <div class="led" id="led"></div>
+      <div class="led-label off" id="ledLabel">OFF</div>
+    </div>
+
+  </div>
+
+  <script>
+    // ============================================================
+    // Dashboard client — connects to the Node.js server via
+    // WebSocket to receive live sensor data and send threshold
+    // changes.
+    // ============================================================
+
+    // --- DOM references ---
+    const statusEl   = document.getElementById("status");
+    const markerEl   = document.getElementById("marker");
+    const ledEl      = document.getElementById("led");
+    const ledLabelEl = document.getElementById("ledLabel");
+    const zoneOnEl   = document.getElementById("zoneOn");
+    const zoneDeadEl = document.getElementById("zoneDead");
+    const zoneOffEl  = document.getElementById("zoneOff");
+    const onLabelEl  = document.getElementById("onLabel");
+    const offLabelEl = document.getElementById("offLabel");
+    const onSlider   = document.getElementById("onSlider");
+    const offSlider  = document.getElementById("offSlider");
+
+    // The gauge maps 0–100 cm across its full width.
+    const MAX_DISTANCE = 100;
+
+    // Current threshold values (will be updated from server).
+    let onDistance = 10;
+    let offDistance = 30;
+
+    // --- Connect to the WebSocket server ---
+    // We connect to the same host that served this page.
+    const ws = new WebSocket(`ws://${location.host}`);
+
+    ws.addEventListener("open", () => {
+      statusEl.textContent = "Connected";
+      statusEl.className = "status connected";
+    });
+
+    ws.addEventListener("close", () => {
+      statusEl.textContent = "Disconnected";
+      statusEl.className = "status disconnected";
+    });
+
+    ws.addEventListener("error", () => {
+      statusEl.textContent = "Connection error";
+      statusEl.className = "status disconnected";
+    });
+
+    // --- Handle incoming messages from the server ---
+    ws.addEventListener("message", (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "init" || data.type === "thresholds") {
+        // Update thresholds from the server (either on first
+        // connect or when another client changes them).
+        onDistance = data.onDistance;
+        offDistance = data.offDistance;
+        onSlider.value = onDistance;
+        offSlider.value = offDistance;
+        updateThresholdDisplay();
+      }
+
+      if (data.type === "init" || data.type === "reading") {
+        // Update the LED indicator.
+        updateLed(data.ledOn);
+      }
+
+      if (data.type === "reading") {
+        // Update the distance gauge marker.
+        updateMarker(data.distance);
+      }
+    });
+
+    // --- Update the distance marker position ---
+    function updateMarker(distance) {
+      // Clamp distance to the gauge range.
+      const clamped = Math.max(0, Math.min(distance, MAX_DISTANCE));
+      const percent = (clamped / MAX_DISTANCE) * 100;
+
+      markerEl.style.left = `calc(${percent}% - 2px)`;
+      markerEl.setAttribute("data-distance", `${distance.toFixed(1)} cm`);
+    }
+
+    // --- Update the LED visual ---
+    function updateLed(isOn) {
+      if (isOn) {
+        ledEl.classList.add("on");
+        ledLabelEl.textContent = "ON";
+        ledLabelEl.className = "led-label on";
+      } else {
+        ledEl.classList.remove("on");
+        ledLabelEl.textContent = "OFF";
+        ledLabelEl.className = "led-label off";
+      }
+    }
+
+    // --- Update the gauge zones and threshold labels ---
+    function updateThresholdDisplay() {
+      const onPercent  = (onDistance / MAX_DISTANCE) * 100;
+      const offPercent = (offDistance / MAX_DISTANCE) * 100;
+
+      // Red zone: 0 to onDistance.
+      zoneOnEl.style.width = `${onPercent}%`;
+
+      // Yellow dead zone: onDistance to offDistance.
+      zoneDeadEl.style.left = `${onPercent}%`;
+      zoneDeadEl.style.width = `${offPercent - onPercent}%`;
+
+      // Green zone: offDistance to 100.
+      zoneOffEl.style.width = `${100 - offPercent}%`;
+
+      // Position threshold labels above the gauge to follow the handles.
+      onLabelEl.style.left = `${onPercent}%`;
+      onLabelEl.textContent = `ON < ${onDistance} cm`;
+
+      offLabelEl.style.left = `${offPercent}%`;
+      offLabelEl.textContent = `OFF > ${offDistance} cm`;
+    }
+
+    // --- Slider interaction ---
+    // The sliders are overlaid directly on the gauge bar.
+    // When the user drags a handle, update the zones in real
+    // time and send the new thresholds to the server.
+
+    onSlider.addEventListener("input", () => {
+      let newOn = parseInt(onSlider.value, 10);
+
+      // Enforce: on threshold must be below off threshold.
+      if (newOn >= offDistance) {
+        newOn = offDistance - 1;
+        onSlider.value = newOn;
+      }
+
+      onDistance = newOn;
+      updateThresholdDisplay();
+      sendThresholds();
+    });
+
+    offSlider.addEventListener("input", () => {
+      let newOff = parseInt(offSlider.value, 10);
+
+      // Enforce: off threshold must be above on threshold.
+      if (newOff <= onDistance) {
+        newOff = onDistance + 1;
+        offSlider.value = newOff;
+      }
+
+      offDistance = newOff;
+      updateThresholdDisplay();
+      sendThresholds();
+    });
+
+    function sendThresholds() {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "thresholds",
+          onDistance: onDistance,
+          offDistance: offDistance,
+        }));
+      }
+    }
+
+    // --- Initialize display ---
+    updateThresholdDisplay();
+  </script>
+</body>
+</html>
