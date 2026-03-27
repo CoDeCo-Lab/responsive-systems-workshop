@@ -148,21 +148,32 @@ Give students the WebSocket URL: `ws://<your-ip>:4000` (e.g. `ws://192.168.1.50:
 Once devices are connected, the dashboard shows each one as a row with:
 
 - **Device name** — whatever the student set in their `client.js`
-- **Distance gauge** — a horizontal bar with a moving marker showing the live reading
-- **Yellow circle (output)** — represents this device's distance sensor
-- **Blue circle (input)** — represents this device's LED
+- **Distance gauge** — a horizontal bar with a white marker showing the live reading, colored zones (red/yellow/green) showing the threshold regions, and two draggable slider handles for adjusting thresholds
+- **Yellow triangle (output)** — represents this device's distance sensor. Dim when idle; lights up with a glow when the sensor detects something within the ON threshold, indicating the sensor is "emitting" a signal.
+- **Blue triangle (input)** — represents this device's LED input. Dim when idle; lights up with a glow when the LED is on, indicating a signal is being received.
 - **LED indicator** — glows red when the LED is on
+
+### Adjusting Thresholds
+
+Each device row has two slider handles on the distance gauge:
+
+- **Red handle** — the ON threshold (LED turns on when distance drops below this)
+- **Green handle** — the OFF threshold (LED turns off when distance rises above this)
+
+Drag these handles to change the thresholds in real time. Small numbers below each handle show the current value in cm. Changes apply immediately to all outgoing links from that device.
 
 ### Linking Devices
 
 To make one device's sensor control another device's LED:
 
-1. **Click and drag** from a **yellow circle** (the source device's sensor output).
+1. **Click and drag** from a **yellow triangle** (the source device's sensor output).
 2. A dashed wire follows your cursor.
-3. **Drop it on a blue circle** (the target device's LED input).
+3. **Drop it on a blue triangle** (the target device's LED input).
 4. A solid wire appears, and the link is active.
 
-Now when the source device's proximity sensor detects an object closer than **10 cm**, the target device's LED turns on. It turns off when the object moves beyond **30 cm** (hysteresis).
+You can also link a device to its own LED — drag from its yellow triangle to its own blue triangle.
+
+When a link is active and the source device's sensor detects an object within the ON threshold, the target device's LED turns on. You'll see the yellow triangle light up on the source, and the blue triangle and LED light up on the target, as if electricity is flowing through the wire.
 
 ### Removing Links
 
@@ -172,3 +183,7 @@ Now when the source device's proximity sensor detects an object closer than **10
 
 - You can link one sensor to multiple LEDs (one-to-many).
 - You can link multiple sensors to one LED (many-to-one) — the LED turns on if **any** source is active.
+
+### Auto-Reconnect
+
+If a student starts their client before the server is running, or if the connection drops, the client automatically retries every 10 seconds until it connects.
