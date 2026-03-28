@@ -36,7 +36,7 @@ const DEVICE_NAME = "My Arduino";
 //   ws://192.168.1.50:4000
 // For testing locally, use:
 //   ws://localhost:4000
-const SERVER_URL = "ws://localhost:4000";
+const SERVER_URL = "ws://signals.codecolab.org";
 
 // --- Dependencies ---
 const { SerialPort } = require("serialport");
